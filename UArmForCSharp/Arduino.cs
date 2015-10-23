@@ -170,6 +170,16 @@ namespace EVOL.NET
 
         }
 
+
+        /// <summary>
+        /// Get All Available Port names
+        /// </summary>
+        /// <returns></returns>
+        public static string[] list()
+        {
+            return SerialPort.GetPortNames();
+        }
+
         ///<summary>
         /// init Firmata Arduino
         /// </summary>
@@ -257,10 +267,7 @@ namespace EVOL.NET
         /// Lists all available serial ports on current system.
         /// </summary>
         /// <returns>An array of strings containing all available serial ports.</returns>
-        public static string[] list()
-        {
-            return SerialPort.GetPortNames();
-        }
+
 
 
         /// <summary>
@@ -330,6 +337,7 @@ namespace EVOL.NET
             message[1] = (byte)(value & 0x7F);
             message[2] = (byte)(value >> 7);
             _serialPort.Write(message, 0, 3);
+            if(isDebug)Console.WriteLine("servoWrite: " + BitConverter.ToString(message).Replace("-", string.Empty));
 
         }
 
@@ -669,7 +677,14 @@ namespace EVOL.NET
 
         private bool isDebug = false;
         private Arduino arduino;
-        private Theta theta = new Theta();
+        private double theta_x;
+        private double theta_y;
+        private double theta_z;
+
+        public static string[] GetPortNames ()
+        {
+            return SerialPort.GetPortNames();
+        }
 
         public void setDebug(bool isDebug)
         {
@@ -681,9 +696,19 @@ namespace EVOL.NET
             return isDebug;
         }
 
-        public Theta GetTheta()
+        public double GetTheta_x()
         {
-            return this.theta;
+            return this.theta_x;
+        }
+
+        public double GetTheta_y()
+        {
+            return this.theta_y;
+        }
+
+        public double GetTheta_z()
+        {
+            return this.theta_z;
         }
 
         public UArm(String port_name, bool isDebug, int delay)
@@ -746,11 +771,16 @@ namespace EVOL.NET
 
         public void MoveTo(double x, double y, double z)
         {
-            theta = ActionControl.calculateServoAngles(x, y, z);
+            Theta theta = ActionControl.calculateServoAngles(x, y, z);
+
             attachAll();
-            arduino.servoWrite(SERVO_ROT_PIN, (int)theta.x);
-            arduino.servoWrite(SERVO_LEFT_PIN, (int)theta.y);
-            arduino.servoWrite(SERVO_RIGHT_PIN, (int)theta.z);
+            AdjustAngle(theta);
+            theta_x = theta.x;
+            theta_y = theta.y;
+            theta_z = theta.z;
+            arduino.servoWrite(SERVO_ROT_PIN, (int)theta_x);
+            arduino.servoWrite(SERVO_LEFT_PIN, (int)theta_y);
+            arduino.servoWrite(SERVO_RIGHT_PIN, (int)theta_z);
         }
 
         public void PumpON()
