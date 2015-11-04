@@ -101,7 +101,7 @@ namespace EVOL.NET
         /// <param name="delay">Time delay that may be required to allow some arduino models
         ///                     to reboot after opening a serial connection. The delay will only activate
         ///                     when autoStart is true.</param>
-        public Arduino(string serialPortName, Int32 baudRate, int delay)
+        public Arduino(string serialPortName, Int32 baudRate, int delay, bool isDebug)
         {
             _serialPort = new SerialPort(serialPortName, baudRate);
             _serialPort.Parity = Parity.None;
@@ -110,7 +110,7 @@ namespace EVOL.NET
             _serialPort.Handshake = Handshake.None;
             _serialPort.RtsEnable = true;
             _serialPort.DtrEnable = true;
-            isDebug = true;
+            this.isDebug = isDebug;
             this.delay = delay;
             _serialPort.DataReceived += new SerialDataReceivedEventHandler(DataReceivedHandler);
             _serialPort.Open();
@@ -125,7 +125,9 @@ namespace EVOL.NET
         /// and automatically opens the specified serial connection.
         /// </summary>
         /// <param name="serialPortName">String specifying the name of the serial port. eg COM4</param>
-        public Arduino(string serialPortName) : this(serialPortName, 115200,  4000) { }
+        public Arduino(string serialPortName) : this(serialPortName, 57600, 4000, false) { }
+
+        public Arduino(string serialPortName, bool isDebug) : this(serialPortName, 57600, 4000, isDebug) { }
 
         /// <summary>
         /// Creates an instance of the Arduino object, based on user-specified serial port and baud rate.
@@ -134,7 +136,7 @@ namespace EVOL.NET
         /// </summary>
         /// <param name="serialPortName">String specifying the name of the serial port. eg COM4</param>
         /// <param name="baudRate">Baud rate.</param>
-        public Arduino(string serialPortName, Int32 baudRate) : this(serialPortName, baudRate,  4000) { }
+        public Arduino(string serialPortName, Int32 baudRate, bool isDebug) : this(serialPortName, baudRate, 4000, isDebug) { }
 
         /// <summary>
         /// Creates an instance of the Arduino object using default arguments.
@@ -142,7 +144,7 @@ namespace EVOL.NET
         /// default baud rate (115200), and a reboot delay (8 seconds).
         /// and automatically opens the specified serial connection.
         /// </summary>
-        public Arduino() : this(Arduino.list().ElementAt(list().Length - 1), 115200, 4000) { }
+        public Arduino() : this(Arduino.list().ElementAt(list().Length - 1), 57600, 4000, false) { }
 
 
         /// <summary>
@@ -186,6 +188,16 @@ namespace EVOL.NET
         private void Init()
         {
             eeprom_data = new int[65536];
+            byte[] command = new byte[2];
+
+            for (int i = 0; i < 6; i++)
+            {
+                command[0] = (byte)(REPORT_ANALOG | i);
+                command[1] = (byte)1;
+                _serialPort.Write(command, 0, 2);
+            }
+
+
         }
 
         ///<summary>
@@ -337,7 +349,7 @@ namespace EVOL.NET
             message[1] = (byte)(value & 0x7F);
             message[2] = (byte)(value >> 7);
             _serialPort.Write(message, 0, 3);
-            if(isDebug)Console.WriteLine("servoWrite: " + BitConverter.ToString(message).Replace("-", string.Empty));
+            if (isDebug) Console.WriteLine("servoWrite: " + BitConverter.ToString(message).Replace("-", string.Empty));
 
         }
 
@@ -478,7 +490,7 @@ namespace EVOL.NET
 
         private static double MATH_PI = 3.141592653;
         private static double MATH_TRANS = 57.2958;
-        private static double MATH_L1 = (10.645 + 0.6);
+        private static double MATH_L1 = 11.245;
         private static double MATH_L2 = 2.117;
         private static double MATH_L3 = 14.825;
         private static double MATH_L4 = 16.02;
@@ -502,12 +514,12 @@ namespace EVOL.NET
         private static double g_l3_1_2;
         private static double g_l4_1_2;
         private static double g_l5_2;
+        //private static double g_l3_1;
+        //private static double g_l4_1;
+        //private static double g_l5;
 
-        private double last_theta1 = 90;
-        private double last_theta2 = 45;
-        private double last_theta3 = 45;
-        private double last_number;
-        
+
+
 
         public static Theta calculateServoAngles(double x, double y, double z)
         {
@@ -632,6 +644,50 @@ namespace EVOL.NET
 
         }
 
+        public static Theta calXYZ(double theta_1, double theta_2, double theta_3)
+        {
+            //double g_l3_1 = MATH_L3 * Math.Cos(theta_2 / MATH_TRANS);
+            //double g_l4_1 = MATH_L4 * Math.Cos(theta_3 / MATH_TRANS);
+            double g_l5 = (MATH_L2 + MATH_L3 * Math.Cos(theta_2 / MATH_TRANS) + MATH_L4 * Math.Cos(theta_3 / MATH_TRANS));
+            Theta theta = new Theta();
+            theta.x = -Math.Cos(Math.Abs(theta_1 / MATH_TRANS)) * g_l5;
+            theta.y = -Math.Sin(Math.Abs(theta_1 / MATH_TRANS)) * g_l5;
+            theta.z = MATH_L1 + MATH_L3 * Math.Sin(Math.Abs(theta_2 / MATH_TRANS)) - MATH_L4 * Math.Sin(Math.Abs(theta_3 / MATH_TRANS));
+            Console.WriteLine("CalXYZ: theta.x: " + theta.x);
+            Console.WriteLine("CalXYZ: theta.y: " + theta.y);
+            Console.WriteLine("CalXYZ: theta.z: " + theta.z);
+            return theta;
+        }
+
+        public static double[] interpolation(double init_val, double final_val)
+        {
+            // by using the formula theta_t = l_a_0 + l_a_1 * t + l_a_2 * t^2 + l_a_3 * t^3
+            // theta(0) = init_val; theta(t_f) = final_val
+            // theta_dot(0) = 0; theta_dot(t_f) = 0
+
+            double l_a_0;
+            double l_a_1;
+            double l_a_2;
+            double l_a_3;
+            double l_t_step;
+            double[] interpol_val_arr = new double[50];
+
+            byte l_time_total = 1;
+
+            l_a_0 = init_val;
+            l_a_1 = 0;
+            l_a_2 = (3 * (final_val - init_val)) / (l_time_total * l_time_total);
+            l_a_3 = (-2 * (final_val - init_val)) / (l_time_total * l_time_total * l_time_total);
+
+            for (byte i = 0; i < 50; i++)
+            {
+                l_t_step = (l_time_total / 50.0) * i;
+                interpol_val_arr[i] = l_a_0 + l_a_1 * (l_t_step) + l_a_2 * (l_t_step * l_t_step) + l_a_3 * (l_t_step * l_t_step * l_t_step);
+            }
+            return interpol_val_arr;
+        }
+
+
     }
 
     public class UArm
@@ -680,8 +736,10 @@ namespace EVOL.NET
         private double theta_x;
         private double theta_y;
         private double theta_z;
+        public Theta last_xyz;
 
-        public static string[] GetPortNames ()
+
+        public static string[] GetPortNames()
         {
             return SerialPort.GetPortNames();
         }
@@ -711,17 +769,26 @@ namespace EVOL.NET
             return this.theta_z;
         }
 
+        public Arduino GetArduino()
+        {
+            return this.arduino;
+        }
+
         public UArm(String port_name, bool isDebug, int delay)
         {
-            arduino = new Arduino(port_name, 57600, delay);
+            arduino = new Arduino(port_name, 57600, delay, isDebug);
             init();
             this.isDebug = isDebug;
-            if (isDebug)
+            if (true)
             {
                 Console.WriteLine("ServoRot Offset: " + servoRotOffset);
                 Console.WriteLine("ServoLeft Offset: " + servoLeftOffset);
                 Console.WriteLine("ServoRight Offset: " + servoRightOffset);
                 Console.WriteLine("ServoHandRot Offset: " + servoHandRotOffset);
+                Console.WriteLine("servoRightLinearIntercept, servoRightLinearSlope: " + servoRightLinearIntercept + "," + servoRightLinearSlope);
+                Console.WriteLine("servoLeftLinearIntercept, servoLeftLinearSlope: " + servoLeftLinearIntercept + "," + servoLeftLinearSlope);
+                Console.WriteLine("servoRotLinearIntercept, servoRotLinearSlope: " + servoRotLinearIntercept + "," + servoRotLinearSlope);
+                Console.WriteLine("servoHandRotLinearIntercept, servoHandRotLinearSlope: " + servoHandRotLinearIntercept + "," + servoHandRotLinearSlope);
             }
         }
 
@@ -739,7 +806,14 @@ namespace EVOL.NET
             readLinearOffset(SERVO_ROT_NUM);
             readLinearOffset(SERVO_LEFT_NUM);
             readLinearOffset(SERVO_RIGHT_NUM);
+            readLinearOffset(SERVO_ROT_NUM);
+            readLinearOffset(SERVO_LEFT_NUM);
+            readLinearOffset(SERVO_RIGHT_NUM);
             servoHandRotOffset = 0;
+            last_xyz = new Theta();
+            last_xyz.x = 0;
+            last_xyz.y = -15;
+            last_xyz.z = 15;
         }
 
         public double readServoOffset(int servo_num)
@@ -769,18 +843,65 @@ namespace EVOL.NET
             arduino.pinMode(SERVO_LEFT_PIN, Arduino.INPUT);
         }
 
+
+        public double findZ()
+        {
+            Theta theta = calXYZ();
+            return theta.z;
+        }
+
+        public double findX()
+        {
+            Theta theta = calXYZ();
+            return theta.x;
+        }
+
+        public double findY()
+        {
+            Theta theta = calXYZ();
+            return theta.y;
+        }
+
+
         public void MoveTo(double x, double y, double z)
         {
+            //Console.WriteLine("Theta_x: " + x);
+            //Console.WriteLine("Theta_y: " + y);
+            //Console.WriteLine("Theta_z: " + z);
             Theta theta = ActionControl.calculateServoAngles(x, y, z);
 
             attachAll();
-            AdjustAngle(theta);
-            theta_x = theta.x;
-            theta_y = theta.y;
-            theta_z = theta.z;
-            arduino.servoWrite(SERVO_ROT_PIN, (int)theta_x);
-            arduino.servoWrite(SERVO_LEFT_PIN, (int)theta_y);
-            arduino.servoWrite(SERVO_RIGHT_PIN, (int)theta_z);
+            theta = AdjustAngle(theta);
+            //theta_x = theta.x;
+            //theta_y = theta.y;
+            //theta_z = theta.z;
+
+
+            arduino.servoWrite(SERVO_ROT_PIN, (int)Math.Round(theta.x));
+            arduino.servoWrite(SERVO_LEFT_PIN, (int)Math.Round(theta.y));
+            arduino.servoWrite(SERVO_RIGHT_PIN, (int)Math.Round(theta.z));
+
+            last_xyz.x = x;
+            last_xyz.y = y;
+            last_xyz.z = z;
+
+        }
+
+        public void writeAngles(int theta_1, int theta_2, int theta_3, int theta_4)
+        {
+            attachAll();
+            arduino.servoWrite(SERVO_ROT_PIN, theta_1);
+            arduino.servoWrite(SERVO_LEFT_PIN, theta_2);
+            arduino.servoWrite(SERVO_RIGHT_PIN, theta_3);
+            arduino.servoWrite(SERVO_HAND_ROT_PIN, theta_4);
+
+        }
+
+        // control the 4th servo
+        public void writeTheta_4(int theta_4)
+        {
+            attachAll();
+            arduino.servoWrite(SERVO_HAND_ROT_PIN, theta_4);
         }
 
         public void PumpON()
@@ -799,11 +920,12 @@ namespace EVOL.NET
             arduino.digitalWrite(PUMP_PIN, Arduino.LOW);
         }
 
-        private void AdjustAngle(Theta theta)
+        private Theta AdjustAngle(Theta theta)
         {
             theta.x = Math.Round(theta.x + servoRotOffset);
             theta.y = Math.Round(theta.y + servoLeftOffset);
             theta.z = Math.Round(theta.z + servoRightOffset);
+            return theta;
         }
 
         public void readLinearOffset(int servo_num)
@@ -842,7 +964,7 @@ namespace EVOL.NET
             }
         }
 
-        public int ReadAngle(int servo_num)
+        public int ReadAngleWithOffset(int servo_num)
         {
             int angle = 0;
             switch (servo_num)
@@ -861,27 +983,31 @@ namespace EVOL.NET
                     break;
 
             }
+            //Console.WriteLine("ReadAngle: servo_num,angle : " + servo_num + ", " + angle);
             return angle;
         }
 
-        public int ReadAngleWithOffset(int servo_num)
+
+
+        public int ReadAngle(int servo_num)
         {
-            int angle = ReadAngle(servo_num);
+            int angle = ReadAngleWithOffset(servo_num);
             switch (servo_num)
             {
                 case UArm.SERVO_ROT_NUM:
-                    angle = (int)(angle + servoRotOffset);
+                    angle = (int)(angle - servoRotOffset);
                     break;
                 case UArm.SERVO_LEFT_NUM:
-                    angle = (int)(angle + servoLeftOffset);
+                    angle = (int)(angle - servoLeftOffset);
                     break;
                 case UArm.SERVO_RIGHT_NUM:
-                    angle = (int)(angle + servoRightOffset);
+                    angle = (int)(angle - servoRightOffset);
                     break;
                 case UArm.SERVO_HAND_ROT_NUM:
-                    angle = (int)(angle + servoHandRotOffset);
+                    angle = (int)(angle - servoHandRotOffset);
                     break;
             }
+            //Console.WriteLine("ReadAngleWithOffset: servo_num,angle : " + servo_num + ", " + angle);
             return angle;
         }
 
@@ -919,6 +1045,55 @@ namespace EVOL.NET
             arduino.EepromWrite(address, Byte0);
             arduino.EepromWrite(address + 1, Byte1);
             arduino.EepromWrite(address + 2, Byte2);
+        }
+
+
+        public Theta calXYZ()
+        {
+
+            return ActionControl.calXYZ(
+            ReadAngle(SERVO_ROT_NUM),
+            ReadAngle(SERVO_LEFT_NUM),
+            ReadAngle(SERVO_RIGHT_NUM));
+
+        }
+
+        public void Move(double x, double y, double z)
+        {
+            attachAll();
+            //double[] x_arr = new double[50];
+            //double[] y_arr = new double[50];
+            //double[] z_arr = new double[50];
+
+
+            //double current_x = theta.x;
+            //double current_y = theta.y;
+            //double current_z = theta.z;
+            //Console.WriteLine("current_x + x: " + current_x + x);
+            //Console.WriteLine("current_y + y: " + current_y + y);
+            //Console.WriteLine("current_z + z: " + current_z + z);
+            Theta theta = calXYZ();
+            double _x = theta.x + x;
+            double _y = theta.y + y;
+            double _z = theta.z + z;
+            MoveTo(_x, _y, _z);
+
+
+            //x_arr = ActionControl.interpolation(current_x, current_x + x);
+            //y_arr = ActionControl.interpolation(current_y, current_y + y);
+            //z_arr = ActionControl.interpolation(current_z, current_z + z);
+
+            //for (int i=0;i<50; i++)
+            //{
+            //    Theta t = ActionControl.calculateServoAngles(x_arr[i],y_arr[i],z_arr[i]);
+            //    arduino.servoWrite(SERVO_ROT_PIN, (int)Math.Round(t.x));
+            //    arduino.servoWrite(SERVO_LEFT_PIN, (int)Math.Round(t.y));
+            //    arduino.servoWrite(SERVO_RIGHT_PIN, (int)Math.Round(t.y));
+            //}
+
+            //arduino.servoWrite(SERVO_ROT_PIN, (int)Math.Round(current_x + x));
+            //arduino.servoWrite(SERVO_LEFT_PIN, (int)Math.Round(current_y + y));
+            //arduino.servoWrite(SERVO_RIGHT_PIN, (int)Math.Round(current_z + z));
         }
     }
 }
