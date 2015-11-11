@@ -477,9 +477,20 @@ namespace EVOL.NET
 
     }
 
+    public class Vector
+    {
+        public double x = 0.0;
+        public double y = 0.0;
+        public double z = 0.0;
+
+    }
+
+
     public class Theta
     {
-
+        public double theta_1 = 0.0;
+        public double theta_2 = 0.0;
+        public double theta_3 = 0.0;
         public double x = 0.0;
         public double y = 0.0;
         public double z = 0.0;
@@ -501,9 +512,7 @@ namespace EVOL.NET
         private static double g_l43;
         private static double g_right_all;
         private static double g_sqrt_z_y;
-        //	private double theta.x;
-        //	private double theta.y;
-        //	private double theta.z;
+ 
         private static double g_phi;
         private static double g_right_all_2;
         private static double g_sqrt_z_x;
@@ -518,27 +527,35 @@ namespace EVOL.NET
         //private static double g_l4_1;
         //private static double g_l5;
 
-
+        private static double TopOffset = -1.5;
+        private static double BottomOffset = 1.5;
 
 
         public static Theta calculateServoAngles(double x, double y, double z)
         {
             Theta theta = new Theta();
+
+            if (z > (MATH_L1 + MATH_L3 + TopOffset))
+            {
+                z = MATH_L1 + MATH_L3 + TopOffset;
+            }
+
+            if (z < (MATH_L1 - MATH_L4 + BottomOffset))
+            {
+                z = MATH_L1 - MATH_L4 + BottomOffset;
+            }
+
+
             g_y_in = (-y - MATH_L2) / MATH_L3;
             g_z_in = (z - MATH_L1) / MATH_L3;
             g_l43 = MATH_L4 / MATH_L3;
             g_right_all = (1 - g_y_in * g_y_in - g_z_in * g_z_in - g_l43 * g_l43) / (2 * g_l43);
             g_sqrt_z_y = Math.Sqrt(g_z_in * g_z_in + g_y_in * g_y_in);
 
-            if (z > (MATH_L1 + MATH_L3))
-            {
-                z = 25;
-            }
-
             if (x == 0)
             {
                 // Calculate value of theta 1
-                theta.x = 90;
+                theta.theta_1 = 90;
 
                 // Calculate value of theta 3
                 if (g_z_in == 0)
@@ -551,41 +568,44 @@ namespace EVOL.NET
                     g_phi = Math.Atan(-g_y_in / g_z_in) * MATH_TRANS;
                 }
 
-                theta.z = Math.Asin(g_right_all / g_sqrt_z_y) * MATH_TRANS - g_phi;
-                if (theta.z > 90)
+                if (g_phi > 0)
+                    g_phi = g_phi - 180;
+
+                theta.theta_3 = Math.Asin(g_right_all / g_sqrt_z_y) * MATH_TRANS - g_phi;
+                if (theta.theta_3 < 0)
                 {
-                    theta.z = 180 - Math.Abs(theta.z);
+                    theta.theta_3 = 0;
                 }
                 // Calculate value of theta 2
 
-                theta.y = Math.Asin((z + MATH_L4 * Math.Sin(theta.z / MATH_TRANS) - MATH_L1) / MATH_L3) * MATH_TRANS;
+                theta.theta_2 = Math.Asin((z + MATH_L4 * Math.Sin(theta.theta_3 / MATH_TRANS) - MATH_L1) / MATH_L3) * MATH_TRANS;
             }
 
             else
             {
                 // Calculate value of theta 1
 
-                theta.x = Math.Atan(y / x) * MATH_TRANS;
+                theta.theta_1 = Math.Atan(y / x) * MATH_TRANS;
 
                 if (y / x > 0)
                 {
-                    theta.x = theta.x + 0;
+                    theta.theta_1 = theta.theta_1 + 0;
                 }
                 if (y / x < 0)
                 {
-                    theta.x = theta.x + 180;
+                    theta.theta_1 = theta.theta_1 + 180;
                 }
                 if (y == 0)
                 {
                     if (x > 0)
-                        theta.x = 180;
+                        theta.theta_1 = 180;
                     else
-                        theta.x = 0;
+                        theta.theta_1 = 0;
                 }
 
                 // Calculate value of theta 3
 
-                g_x_in = (-x / Math.Cos(theta.x / MATH_TRANS) - MATH_L2) / MATH_L3;
+                g_x_in = (-x / Math.Cos(theta.theta_1 / MATH_TRANS) - MATH_L2) / MATH_L3;
 
                 if (g_z_in == 0)
                 {
@@ -597,38 +617,41 @@ namespace EVOL.NET
                     g_phi = Math.Atan(-g_x_in / g_z_in) * MATH_TRANS;
                 }
 
+                if (g_phi > 0)
+                    g_phi = g_phi - 180;
+
                 g_sqrt_z_x = Math.Sqrt(g_z_in * g_z_in + g_x_in * g_x_in);
 
                 g_right_all_2 = -1 * (g_z_in * g_z_in + g_x_in * g_x_in + g_l43 * g_l43 - 1) / (2 * g_l43);
-                theta.z = Math.Asin(g_right_all_2 / g_sqrt_z_x) * MATH_TRANS;
-                theta.z = theta.z - g_phi;
+                theta.theta_3 = Math.Asin(g_right_all_2 / g_sqrt_z_x) * MATH_TRANS;
+                theta.theta_3 = theta.theta_3 - g_phi;
 
-                if (Math.Abs(theta.z) > 90)
+                if (theta.theta_3 < 0)
                 {
-                    theta.z = 180 - Math.Abs(theta.z);
+                    theta.theta_3 = 0;
                 }
 
                 // Calculate value of theta 2
 
-                theta.y = Math.Asin(g_z_in + g_l43 * Math.Sin(Math.Abs(theta.z / MATH_TRANS))) * MATH_TRANS;
+                theta.theta_2 = Math.Asin(g_z_in + g_l43 * Math.Sin(Math.Abs(theta.theta_3 / MATH_TRANS))) * MATH_TRANS;
 
             }
 
-            theta.x = Math.Abs(theta.x);
-            theta.y = Math.Abs(theta.y);
+            theta.theta_1 = Math.Abs(theta.theta_1);
+            theta.theta_2 = Math.Abs(theta.theta_2);
 
-            if (theta.z < 0)
+            if (theta.theta_3 < 0)
             {
             }
             else
             {
-                if ((calYonly(theta.x, theta.y, theta.z) > y + 0.1) || (calYonly(theta.x, theta.y, theta.z) < y - 0.1))
+                if ((calYonly(theta.theta_1, theta.theta_2, theta.theta_3) > y + 0.1) || (calYonly(theta.theta_1, theta.theta_2, theta.theta_3) < y - 0.1))
                 {
-                    theta.y = 180 - theta.y;
+                    theta.theta_2 = 180 - theta.theta_2;
                 }
             }
 
-            theta.z = Math.Abs(theta.z);
+            theta.theta_3 = Math.Abs(theta.theta_3);
             return theta;
         }
 
@@ -644,19 +667,20 @@ namespace EVOL.NET
 
         }
 
-        public static Theta calXYZ(double theta_1, double theta_2, double theta_3)
+        public static Vector calXYZ(double theta_1, double theta_2, double theta_3)
         {
             //double g_l3_1 = MATH_L3 * Math.Cos(theta_2 / MATH_TRANS);
             //double g_l4_1 = MATH_L4 * Math.Cos(theta_3 / MATH_TRANS);
             double g_l5 = (MATH_L2 + MATH_L3 * Math.Cos(theta_2 / MATH_TRANS) + MATH_L4 * Math.Cos(theta_3 / MATH_TRANS));
-            Theta theta = new Theta();
-            theta.x = -Math.Cos(Math.Abs(theta_1 / MATH_TRANS)) * g_l5;
-            theta.y = -Math.Sin(Math.Abs(theta_1 / MATH_TRANS)) * g_l5;
-            theta.z = MATH_L1 + MATH_L3 * Math.Sin(Math.Abs(theta_2 / MATH_TRANS)) - MATH_L4 * Math.Sin(Math.Abs(theta_3 / MATH_TRANS));
-            Console.WriteLine("CalXYZ: theta.x: " + theta.x);
-            Console.WriteLine("CalXYZ: theta.y: " + theta.y);
-            Console.WriteLine("CalXYZ: theta.z: " + theta.z);
-            return theta;
+            Vector vector = new Vector();
+
+            vector.x = -Math.Cos(Math.Abs(theta_1 / MATH_TRANS)) * g_l5;
+            vector.y = -Math.Sin(Math.Abs(theta_1 / MATH_TRANS)) * g_l5;
+            vector.z = MATH_L1 + MATH_L3 * Math.Sin(Math.Abs(theta_2 / MATH_TRANS)) - MATH_L4 * Math.Sin(Math.Abs(theta_3 / MATH_TRANS));
+            Console.WriteLine("CalXYZ: vector.x: " + vector.x);
+            Console.WriteLine("CalXYZ: vector.y: " + vector.y);
+            Console.WriteLine("CalXYZ: vector.z: " + vector.z);
+            return vector;
         }
 
         public static double[] interpolation(double init_val, double final_val)
@@ -733,10 +757,10 @@ namespace EVOL.NET
 
         private bool isDebug = false;
         private Arduino arduino;
-        private double theta_x;
-        private double theta_y;
-        private double theta_z;
-        public Theta last_xyz;
+        private double theta_1;
+        private double theta_2;
+        private double theta_3;
+        public Vector last_xyz;
 
 
         public static string[] GetPortNames()
@@ -754,19 +778,19 @@ namespace EVOL.NET
             return isDebug;
         }
 
-        public double GetTheta_x()
+        public double GetTheta_1()
         {
-            return this.theta_x;
+            return this.theta_1;
         }
 
-        public double GetTheta_y()
+        public double GetTheta_2()
         {
-            return this.theta_y;
+            return this.theta_2;
         }
 
-        public double GetTheta_z()
+        public double GetTheta_3()
         {
-            return this.theta_z;
+            return this.theta_3;
         }
 
         public Arduino GetArduino()
@@ -810,7 +834,7 @@ namespace EVOL.NET
             readLinearOffset(SERVO_LEFT_NUM);
             readLinearOffset(SERVO_RIGHT_NUM);
             servoHandRotOffset = 0;
-            last_xyz = new Theta();
+            last_xyz = new Vector();
             last_xyz.x = 0;
             last_xyz.y = -15;
             last_xyz.z = 15;
@@ -846,54 +870,148 @@ namespace EVOL.NET
 
         public double findZ()
         {
-            Theta theta = calXYZ();
-            return theta.z;
+            Vector vector = calXYZ();
+            return vector.z;
         }
 
         public double findX()
         {
-            Theta theta = calXYZ();
-            return theta.x;
+            Vector vector = calXYZ();
+            return vector.x;
         }
 
         public double findY()
         {
-            Theta theta = calXYZ();
-            return theta.y;
+            Vector vector = calXYZ();
+            return vector.y;
         }
 
 
+        public void Move(double x, double y, double z)
+        {
+            attachAll();
+            Theta theta = new Theta();
+            double[] x_arr = new double[50];
+            double[] y_arr = new double[50];
+            double[] z_arr = new double[50];
+
+            double current_x = findX();
+            double current_y = findY();
+            double current_z = findZ();
+
+            Vector vector = calXYZ();
+            double _x = vector.x + x;
+            double _y = vector.y + y;
+            double _z = vector.z + z;
+
+            x_arr = ActionControl.interpolation(current_x, current_x + x);
+            y_arr = ActionControl.interpolation(current_y, current_y + y);
+            z_arr = ActionControl.interpolation(current_z, current_z + z);
+
+            for (int i = 0; i < 50; i++)
+            {
+                Theta t = ActionControl.calculateServoAngles(x_arr[i], y_arr[i], z_arr[i]);
+                writeAngles(t.theta_1, t.theta_2, t.theta_3, 0);
+                Thread.Sleep(40);
+            }
+        }
+
         public void MoveTo(double x, double y, double z)
         {
-            //Console.WriteLine("Theta_x: " + x);
-            //Console.WriteLine("Theta_y: " + y);
-            //Console.WriteLine("Theta_z: " + z);
+
+            attachAll();
+            Theta theta = new Theta();
+            double[] x_arr = new double[50];
+            double[] y_arr = new double[50];
+            double[] z_arr = new double[50];
+
+            double current_x = findX();
+            double current_y = findY();
+            double current_z = findZ();
+
+            Vector vector = calXYZ();
+            double _x = vector.x + x;
+            double _y = vector.y + y;
+            double _z = vector.z + z;
+
+            x_arr = ActionControl.interpolation(current_x, x);
+            y_arr = ActionControl.interpolation(current_y, y);
+            z_arr = ActionControl.interpolation(current_z, z);
+
+            for (int i = 0; i < 50; i++)
+            {
+                Theta t = ActionControl.calculateServoAngles(x_arr[i], y_arr[i], z_arr[i]);
+
+                writeAngles(t.theta_1, t.theta_2, t.theta_3, 0);
+                Thread.Sleep(40);
+            }
+        }
+
+        public void MoveTo(double x, double y, double z,int time)
+        {
+            attachAll();
+            Theta theta = new Theta();
+            double[] x_arr = new double[50];
+            double[] y_arr = new double[50];
+            double[] z_arr = new double[50];
+
+            double current_x = findX();
+            double current_y = findY();
+            double current_z = findZ();
+
+            Vector vector = calXYZ();
+            double _x = vector.x + x;
+            double _y = vector.y + y;
+            double _z = vector.z + z;
+
+            x_arr = ActionControl.interpolation(current_x, x);
+            y_arr = ActionControl.interpolation(current_y, y);
+            z_arr = ActionControl.interpolation(current_z, z);
+
+            if (time < 0) time = 0;
+
+            for (int i = 0; i < 50; i++)
+            {
+                Theta t = ActionControl.calculateServoAngles(x_arr[i], y_arr[i], z_arr[i]);
+                writeAngles(t.theta_1, t.theta_2, t.theta_3, 0);
+                Thread.Sleep(time*20);
+            }
+        }
+
+
+        public void MoveToAtOnce(double x, double y, double z)
+        {
+
             Theta theta = ActionControl.calculateServoAngles(x, y, z);
 
             attachAll();
             theta = AdjustAngle(theta);
-            //theta_x = theta.x;
-            //theta_y = theta.y;
-            //theta_z = theta.z;
 
-
-            arduino.servoWrite(SERVO_ROT_PIN, (int)Math.Round(theta.x));
-            arduino.servoWrite(SERVO_LEFT_PIN, (int)Math.Round(theta.y));
-            arduino.servoWrite(SERVO_RIGHT_PIN, (int)Math.Round(theta.z));
+            arduino.servoWrite(SERVO_ROT_PIN, (int)Math.Round(theta.theta_1));
+            arduino.servoWrite(SERVO_LEFT_PIN, (int)Math.Round(theta.theta_2));
+            arduino.servoWrite(SERVO_RIGHT_PIN, (int)Math.Round(theta.theta_3));
 
             last_xyz.x = x;
             last_xyz.y = y;
             last_xyz.z = z;
-
         }
 
-        public void writeAngles(int theta_1, int theta_2, int theta_3, int theta_4)
+     
+
+
+
+
+        public void writeAngles(double theta_1, double theta_2, double theta_3, double theta_4)
         {
+            theta_1 = Math.Round(theta_1 + servoRotOffset);
+            theta_2 = Math.Round(theta_2 + servoLeftOffset);
+            theta_3 = Math.Round(theta_3 + servoRightOffset);
+      
             attachAll();
-            arduino.servoWrite(SERVO_ROT_PIN, theta_1);
-            arduino.servoWrite(SERVO_LEFT_PIN, theta_2);
-            arduino.servoWrite(SERVO_RIGHT_PIN, theta_3);
-            arduino.servoWrite(SERVO_HAND_ROT_PIN, theta_4);
+            arduino.servoWrite(SERVO_ROT_PIN, Convert.ToInt16(theta_1));
+            arduino.servoWrite(SERVO_LEFT_PIN, Convert.ToInt16(theta_2));
+            arduino.servoWrite(SERVO_RIGHT_PIN, Convert.ToInt16(theta_3));
+            arduino.servoWrite(SERVO_HAND_ROT_PIN, Convert.ToInt16(theta_4));
 
         }
 
@@ -922,9 +1040,9 @@ namespace EVOL.NET
 
         private Theta AdjustAngle(Theta theta)
         {
-            theta.x = Math.Round(theta.x + servoRotOffset);
-            theta.y = Math.Round(theta.y + servoLeftOffset);
-            theta.z = Math.Round(theta.z + servoRightOffset);
+            theta.theta_1 = Math.Round(theta.theta_1 + servoRotOffset);
+            theta.theta_2 = Math.Round(theta.theta_2 + servoLeftOffset);
+            theta.theta_3 = Math.Round(theta.theta_3 + servoRightOffset);
             return theta;
         }
 
@@ -1048,7 +1166,15 @@ namespace EVOL.NET
         }
 
 
-        public Theta calXYZ()
+        public Theta find3Angles(double x,double y, double z)
+        {
+            Theta theta = ActionControl.calculateServoAngles(x, y, z);
+
+            return theta;
+
+        }
+
+        public Vector calXYZ()
         {
 
             return ActionControl.calXYZ(
@@ -1058,42 +1184,6 @@ namespace EVOL.NET
 
         }
 
-        public void Move(double x, double y, double z)
-        {
-            attachAll();
-            //double[] x_arr = new double[50];
-            //double[] y_arr = new double[50];
-            //double[] z_arr = new double[50];
-
-
-            //double current_x = theta.x;
-            //double current_y = theta.y;
-            //double current_z = theta.z;
-            //Console.WriteLine("current_x + x: " + current_x + x);
-            //Console.WriteLine("current_y + y: " + current_y + y);
-            //Console.WriteLine("current_z + z: " + current_z + z);
-            Theta theta = calXYZ();
-            double _x = theta.x + x;
-            double _y = theta.y + y;
-            double _z = theta.z + z;
-            MoveTo(_x, _y, _z);
-
-
-            //x_arr = ActionControl.interpolation(current_x, current_x + x);
-            //y_arr = ActionControl.interpolation(current_y, current_y + y);
-            //z_arr = ActionControl.interpolation(current_z, current_z + z);
-
-            //for (int i=0;i<50; i++)
-            //{
-            //    Theta t = ActionControl.calculateServoAngles(x_arr[i],y_arr[i],z_arr[i]);
-            //    arduino.servoWrite(SERVO_ROT_PIN, (int)Math.Round(t.x));
-            //    arduino.servoWrite(SERVO_LEFT_PIN, (int)Math.Round(t.y));
-            //    arduino.servoWrite(SERVO_RIGHT_PIN, (int)Math.Round(t.y));
-            //}
-
-            //arduino.servoWrite(SERVO_ROT_PIN, (int)Math.Round(current_x + x));
-            //arduino.servoWrite(SERVO_LEFT_PIN, (int)Math.Round(current_y + y));
-            //arduino.servoWrite(SERVO_RIGHT_PIN, (int)Math.Round(current_z + z));
-        }
+        
     }
 }
