@@ -37,7 +37,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace EVOL.NET
+namespace UFACTORY.NET
 {
 
     /**
