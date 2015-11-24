@@ -978,6 +978,41 @@ namespace UFACTORY.CC
             }
         }
 
+        public void MoveTo(double x, double y, double z, int time, int relative, int servo_4)
+        {
+            attachAll();
+            Theta theta = new Theta();
+            double current_x = findX();
+            double current_y = findY();
+            double current_z = findZ();
+
+            double[] x_arr = new double[50];
+            double[] y_arr = new double[50];
+            double[] z_arr = new double[50];
+
+            x_arr = ActionControl.interpolation(current_x, x);
+            y_arr = ActionControl.interpolation(current_y, y);
+            z_arr = ActionControl.interpolation(current_z, z);
+
+            if (time < 0) time = 0;
+
+            if (time != 0)
+            {
+                for (int i = 0; i < 50; i++)
+                {
+                    Theta t = ActionControl.calculateServoAngles(x_arr[i], y_arr[i], z_arr[i]);
+                    writeAngles(t.theta_1, t.theta_2, t.theta_3, t.theta_1 * relative + servo_4);
+                    Thread.Sleep(time * 20);
+                }
+            }
+            else
+            {
+                Theta t = ActionControl.calculateServoAngles(x_arr[49], y_arr[49], z_arr[49]);
+                writeAngles(t.theta_1, t.theta_2, t.theta_3, t.theta_1 * relative + servo_4);
+            }
+
+        }
+
 
         public void MoveToAtOnce(double x, double y, double z)
         {
