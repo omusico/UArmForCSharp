@@ -1044,13 +1044,13 @@ namespace UFACTORY.CC
 	    
 	    
     	    if(theta_2 < 10) theta_2 = 10;
-	    if(theta_2 > 120) theta_2 = 120;
-	    if(theta_3 < 10) theta_3 = 10;
-	    if(theta_3 > 110) theta_3 = 110;
+            if(theta_2 > 120) theta_2 = 120;
+            if(theta_3 < 10) theta_3 = 10;
+            if(theta_3 > 110) theta_3 = 110;
 
 
-	    if(theta_2 + theta_3 > 150) 
-		{theta_3 = 150 - theta_2;}
+            if(theta_2 + theta_3 > 150) 
+            {theta_3 = 150 - theta_2;}
 
             attachAll();
             arduino.servoWrite(SERVO_ROT_PIN, Convert.ToInt16(theta_1));
